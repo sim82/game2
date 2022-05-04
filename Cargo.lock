@@ -210,6 +210,7 @@ version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fce306d40a111309ee61d4626efbafccdd46bb80657122c38061fa7264c08e4"
 dependencies = [
+ "bevy_dylib",
  "bevy_internal",
 ]
 
@@ -388,6 +389,15 @@ dependencies = [
  "bevy_ecs",
  "bevy_log",
  "bevy_utils",
+]
+
+[[package]]
+name = "bevy_dylib"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bf02ce7a578743cd94cb38dc7a9b405d6058a2317011744371eaa56b4d6e786"
+dependencies = [
+ "bevy_internal",
 ]
 
 [[package]]
@@ -1657,6 +1667,7 @@ dependencies = [
  "bevy_egui 0.14.0",
  "bevy_mod_picking",
  "bevy_rapier3d",
+ "multimap",
  "num-traits",
  "rand",
 ]
@@ -2286,6 +2297,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9f1c5b025cda876f66ef43a113f91ebc9f4ccef34843000e0adf6ebbab84e21"
 dependencies = [
  "winapi",
+]
+
+[[package]]
+name = "multimap"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

@@ -1,4 +1,4 @@
-use game2::{hex::Cube, shape::HexPlane};
+use game2::{hex::Cube, shape::HexPlane, AttachCollider};
 
 use bevy::{
     diagnostic::DiagnosticsPlugin,
@@ -34,8 +34,11 @@ fn main() {
         .add_system(exit_on_esc_system);
 
     app.add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        // .add_plugin(RapierDebugRenderPlugin::default())
+        .add_plugin(RapierDebugRenderPlugin::default())
+        // .add_plugin(InspectableRapierPlugin)
         ;
+
+    app.add_plugin(game2::AutoColliderPlugin);
 
     // app.add_plugins(DefaultPickingPlugins) // <- Adds Picking, Interaction, and Highlighting plugins.
     //     .add_plugin(DebugCursorPickingPlugin) // <- Adds the green debug cursor.
@@ -46,9 +49,7 @@ fn main() {
 
     app.add_system_to_stage(CoreStage::PostUpdate, picking_events_system);
 
-    app.add_system(rotate_system)
-        .add_system(mesh_changed_system);
-
+    app.add_system(rotate_system);
     app.add_startup_system(setup);
     app.add_system(cube_spawn_system);
     #[cfg(feature = "inspector")]
@@ -91,6 +92,9 @@ fn setup(
 ) {
     let camera_pos = Vec3::new(0.0, 2.0, 0.0);
     let camera_look = Vec3::new(2.0, -1.0, 2.0);
+    // let camera_pos = Vec3::new(-20.0, 2.0, -20.0);
+    // let camera_look = Vec3::new(2.0, -1.0, 2.0);
+
     commands
         .spawn_bundle(PerspectiveCameraBundle {
             transform: Transform::from_translation(camera_pos)
@@ -117,8 +121,9 @@ fn setup(
     for y in 0..11 {
         for x in 0..11 {
             let mut material: StandardMaterial = Color::WHITE.into();
-            material.perceptual_roughness = 0.2;
-            material.metallic = 0.0;
+            material.perceptual_roughness = 0.5;
+            material.metallic = 0.5;
+
             let material = materials.add(material);
             let cube = Cube::from_odd_r(Vec2::new(x as f32, y as f32));
             let pos = cube.to_odd_r_screen().extend(0.0).xzy();
@@ -140,25 +145,26 @@ fn setup(
                 ..default()
             })
             .insert_bundle(PickableBundle::default())
-            .insert(AutoUpdateCollider);
+            .insert(AttachCollider)
+            .insert(RigidBody::KinematicPositionBased);
 
             if x == 5 && y == 5 {
                 ec.insert(DoRotate::default());
             }
 
-            if false && x <= 10 && y <= 10 {
-                commands.spawn_bundle(PointLightBundle {
-                    transform: Transform::from_translation(pos + Vec3::new(0.0, 0.5, 0.0)),
-                    point_light: PointLight {
-                        intensity: 20.0,
-                        radius: 0.0,
-                        range: 1.0,
-                        color,
-                        ..default()
-                    },
-                    ..default()
-                });
-            }
+            // if x == 5 && y == 5 {
+            //     commands.spawn_bundle(PointLightBundle {
+            //         transform: Transform::from_translation(pos + Vec3::new(0.0, 0.1, 0.0)),
+            //         point_light: PointLight {
+            //             intensity: 20.0,
+            //             radius: 0.5,
+            //             range: 1.0,
+            //             color: Color::YELLOW,
+            //             ..default()
+            //         },
+            //         ..default()
+            //     });
+            // }
 
             // if x == 5 && y == 5 {
 
@@ -172,9 +178,6 @@ fn setup(
 struct DoRotate {
     progress: f32,
 }
-
-#[derive(Component)]
-struct AutoUpdateCollider;
 
 fn rotate_system(
     mut commands: Commands,
@@ -191,57 +194,20 @@ fn rotate_system(
             rotate.progress
         };
         transform.rotation = Quat::from_axis_angle(Vec3::Z, rotation);
+        info!("transform: {:?}", transform);
     }
-}
+    // for (entity, mut velocity, transform, mut rotate) in query.iter_mut() {
+    //     info!("transform: {:?}", transform);
+    //     if rotate.progress == 0.0 {
+    //         velocity.angvel = Vec3::X;
+    //     }
+    //     rotate.progress += time.delta_seconds() * std::f32::consts::PI;
 
-#[allow(clippy::type_complexity)]
-fn mesh_changed_system(
-    mut decomp_cache: Local<HashMap<Handle<Mesh>, Collider>>,
-    mut commands: Commands,
-    mut mesh_events: EventReader<AssetEvent<Mesh>>,
-    meshes: Res<Assets<Mesh>>,
-    query: Query<(Entity, &Handle<Mesh>), (Without<Collider>, With<AutoUpdateCollider>)>,
-) {
-    let created_meshes = mesh_events
-        .iter()
-        .filter_map(|e| {
-            if let AssetEvent::Created { handle } = e {
-                Some(handle.clone())
-            } else {
-                None
-            }
-        })
-        .collect::<HashSet<_>>();
-
-    if !created_meshes.is_empty() {
-        // if a new mesh arrived:
-        // check if there is a component with AutoUpdateCollider but without Collider for which the newly
-        // calculated collider would fit
-        for (entity, handle) in query.iter() {
-            if !created_meshes.contains(handle) {
-                continue;
-            }
-            let collider = match decomp_cache.entry(handle.clone()) {
-                bevy::utils::hashbrown::hash_map::Entry::Occupied(e) => e.get().clone(),
-                bevy::utils::hashbrown::hash_map::Entry::Vacant(e) => {
-                    if let Some(mesh) = meshes.get(handle) {
-                        // TODO: calculate decomposition in background
-                        // TODO2: meh think again, the hex tiles are already convex...
-                        // let collider = Collider::bevy_mesh_convex_decomposition(mesh).unwrap();
-                        let collider = Collider::bevy_mesh(mesh).unwrap();
-                        info!("convex decomposition done.");
-                        e.insert(collider).clone()
-                    } else {
-                        panic!("could not get mesh instance after Created event!?");
-                    }
-                }
-            };
-            commands
-                .entity(entity)
-                .insert(collider)
-                .insert(RigidBody::Fixed);
-        }
-    }
+    //     if rotate.progress >= std::f32::consts::PI {
+    //         commands.entity(entity).remove::<DoRotate>();
+    //         *velocity = Velocity::zero();
+    //     }
+    // }
 }
 
 fn cube_spawn_system(
@@ -249,47 +215,60 @@ fn cube_spawn_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut cube_handle: Local<Option<Handle<Mesh>>>,
+    despawn_query: Query<(Entity, &Transform), With<Collider>>,
 ) {
-    let cube = if let Some(cube) = cube_handle.as_ref() {
-        cube.clone()
-    } else {
-        let cube_mesh = meshes.add(shape::Cube { size: 0.1 }.into());
-        *cube_handle = Some(cube_mesh.clone());
-        cube_mesh
-    };
-    let mut rng = rand::thread_rng();
-    let color = *game2::colors.choose(&mut rng).unwrap();
+    let mut num_colliders = 0;
+    for (entity, Transform { translation, .. }) in despawn_query.iter() {
+        if translation.y < -10.0 {
+            commands.entity(entity).despawn_recursive();
+        } else {
+            num_colliders += 1;
+        }
+    }
 
-    let material = StandardMaterial {
-        base_color: Color::BLACK,
-        emissive: color,
-        ..default()
-    };
-    let material = materials.add(material);
+    if num_colliders < 200 {
+        let cube = if let Some(cube) = cube_handle.as_ref() {
+            cube.clone()
+        } else {
+            let cube_mesh = meshes.add(shape::Cube { size: 0.1 }.into());
+            *cube_handle = Some(cube_mesh.clone());
+            cube_mesh
+        };
+        let mut rng = rand::thread_rng();
+        let color = *game2::colors.choose(&mut rng).unwrap();
 
-    commands
-        .spawn_bundle(PbrBundle {
-            transform: Transform::from_translation(Vec3::new(5.0, 0.0, 5.0) + Vec3::Y * 3.15),
-            material,
-            mesh: cube,
+        let material = StandardMaterial {
+            base_color: Color::BLACK,
+
+            emissive: color,
             ..default()
-        })
-        .insert(Collider::cuboid(0.05, 0.05, 0.05))
-        .insert(Restitution {
-            coefficient: 1.0,
-            ..default()
-        })
-        .insert(RigidBody::Dynamic)
-        .with_children(|commands| {
-            commands.spawn_bundle(PointLightBundle {
-                point_light: PointLight {
-                    intensity: 10.0,
-                    radius: 0.1,
-                    range: 1.0,
-                    color,
-                    ..default()
-                },
+        };
+        let material = materials.add(material);
+
+        commands
+            .spawn_bundle(PbrBundle {
+                transform: Transform::from_translation(Vec3::new(5.0, 0.0, 5.0) + Vec3::Y * 3.15),
+                material,
+                mesh: cube,
                 ..default()
+            })
+            .insert(Collider::cuboid(0.05, 0.05, 0.05))
+            .insert(Restitution {
+                coefficient: 1.0,
+                ..default()
+            })
+            .insert(RigidBody::Dynamic)
+            .with_children(|commands| {
+                commands.spawn_bundle(PointLightBundle {
+                    point_light: PointLight {
+                        intensity: 10.0,
+                        radius: 0.05,
+                        range: 1.0,
+                        color,
+                        ..default()
+                    },
+                    ..default()
+                });
             });
-        });
+    }
 }

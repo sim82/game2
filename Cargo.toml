@@ -15,12 +15,14 @@ inspector = ["bevy-inspector-egui"]
 
 
 [dependencies]
-# bevy = { version = "0.7", features = ["dynamic"] }
-bevy = { version = "0.7" }
+bevy = { version = "0.7", features = ["dynamic"] }
+# bevy = { version = "0.7" }
 
 bevy-inspector-egui = { version = "0.10", optional = true }
+# bevy-inspector-egui-rapier = { version = "0.1", features = ["rapier3d"] }
 bevy_egui = "0.14"
 rand = "0.8"
 num-traits = "0.2"
 bevy_mod_picking = "0.6"
 bevy_rapier3d = { version = "0.13", features = ["simd-stable"] }
+multimap = "0.8"

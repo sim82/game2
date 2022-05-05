@@ -437,11 +437,12 @@ fn spawn_exploding_cube(
                         mesh: cube.clone(),
                         ..default()
                     })
-                    .insert(Collider::cuboid(
-                        cube_size / 2.0,
-                        cube_size / 2.0,
-                        cube_size / 2.0,
-                    ))
+                    // .insert(Collider::cuboid(
+                    //     cube_size / 2.0,
+                    //     cube_size / 2.0,
+                    //     cube_size / 2.0,
+                    // ))
+                    .insert(Collider::ball(cube_size / 2.0))
                     .insert(Restitution {
                         coefficient: 1.0,
                         ..default()

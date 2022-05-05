@@ -11,7 +11,7 @@ use bevy::{
     },
     utils::{HashMap, HashSet},
 };
-use bevy_egui::EguiPlugin;
+use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_mod_picking::{
     DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, HoverEvent,
     InteractablePickingPlugin, PickableBundle, PickingCameraBundle, PickingEvent, PickingPlugin,
@@ -51,7 +51,11 @@ fn main() {
 
     app.add_system(rotate_system);
     app.add_startup_system(setup);
-    app.add_system(cube_spawn_system);
+    app.add_system(cube_spawn_system)
+        .add_system(fade_out_system);
+    app.add_system(material_properties_ui_system)
+        .init_resource::<GlobalState>();
+
     #[cfg(feature = "inspector")]
     {
         app.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
@@ -64,24 +68,40 @@ fn picking_events_system(
     mut commands: Commands,
     mut events: EventReader<PickingEvent>,
     rotating: Query<Entity, With<DoRotate>>,
+    tile_pos_query: Query<&Transform>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for event in events.iter() {
         match event {
             PickingEvent::Selection(e) => info!("A selection event happened: {:?}", e),
             PickingEvent::Hover(e) => {
-                if let HoverEvent::JustEntered(e) = e {
-                    if !rotating.contains(*e) {
-                        commands.entity(*e).insert(DoRotate::default());
-                    }
-                }
+                // if let HoverEvent::JustEntered(e) = e {
+                //     if !rotating.contains(*e) {
+                //         commands.entity(*e).insert(DoRotate::default());
+                //     }
+                // }
             }
             PickingEvent::Clicked(e) => {
                 if !rotating.contains(*e) {
-                    commands.entity(*e).insert(DoRotate::default());
+                    // commands.entity(*e).insert(DoRotate::default());
+                    if let Ok(Transform { translation, .. }) = tile_pos_query.get(*e) {
+                        spawn_exploding_cube(
+                            &mut commands,
+                            *translation,
+                            &mut meshes,
+                            &mut materials,
+                        );
+                    }
                 }
             }
         }
     }
+}
+
+#[derive(Default)]
+struct GlobalState {
+    tile_material: Handle<StandardMaterial>,
 }
 
 fn setup(
@@ -89,6 +109,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    mut global_state: ResMut<GlobalState>,
 ) {
     let camera_pos = Vec3::new(0.0, 2.0, 0.0);
     let camera_look = Vec3::new(2.0, -1.0, 2.0);
@@ -118,13 +139,15 @@ fn setup(
     let mesh_inst = meshes.get(mesh.clone());
     // info!("mesh: {:?}", mesh_inst);
     let mut rng = rand::thread_rng();
+
+    let mut material: StandardMaterial = Color::WHITE.into();
+    material.perceptual_roughness = 0.4;
+    material.metallic = 0.6;
+
+    let material = materials.add(material);
+    global_state.tile_material = material.clone();
     for y in 0..11 {
         for x in 0..11 {
-            let mut material: StandardMaterial = Color::WHITE.into();
-            material.perceptual_roughness = 0.5;
-            material.metallic = 0.5;
-
-            let material = materials.add(material);
             let cube = Cube::from_odd_r(Vec2::new(x as f32, y as f32));
             let pos = cube.to_odd_r_screen().extend(0.0).xzy();
             // info!("pos: {:?}", pos);
@@ -141,7 +164,7 @@ fn setup(
                 transform: Transform::from_translation(pos),
 
                 mesh: mesh.clone(),
-                material,
+                material: material.clone(),
                 ..default()
             })
             .insert_bundle(PickableBundle::default())
@@ -215,60 +238,232 @@ fn cube_spawn_system(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut cube_handle: Local<Option<Handle<Mesh>>>,
-    despawn_query: Query<(Entity, &Transform), With<Collider>>,
+    despawn_query: Query<(Entity, &Transform, &Handle<StandardMaterial>), With<Collider>>,
 ) {
     let mut num_colliders = 0;
-    for (entity, Transform { translation, .. }) in despawn_query.iter() {
+    for (entity, Transform { translation, .. }, material) in despawn_query.iter() {
         if translation.y < -10.0 {
+            materials.remove(material);
             commands.entity(entity).despawn_recursive();
         } else {
             num_colliders += 1;
         }
     }
 
-    if num_colliders < 200 {
-        let cube = if let Some(cube) = cube_handle.as_ref() {
-            cube.clone()
-        } else {
-            let cube_mesh = meshes.add(shape::Cube { size: 0.1 }.into());
-            *cube_handle = Some(cube_mesh.clone());
-            cube_mesh
-        };
-        let mut rng = rand::thread_rng();
-        let color = *game2::colors.choose(&mut rng).unwrap();
+    if false {
+        if num_colliders < 200 {
+            let cube = if let Some(cube) = cube_handle.as_ref() {
+                cube.clone()
+            } else {
+                let cube_mesh = meshes.add(shape::Cube { size: 0.1 }.into());
+                *cube_handle = Some(cube_mesh.clone());
+                cube_mesh
+            };
+            let mut rng = rand::thread_rng();
+            let color = *game2::colors.choose(&mut rng).unwrap();
 
-        let material = StandardMaterial {
-            base_color: Color::BLACK,
+            let material = StandardMaterial {
+                base_color: Color::BLACK,
 
-            emissive: color,
-            ..default()
-        };
-        let material = materials.add(material);
-
-        commands
-            .spawn_bundle(PbrBundle {
-                transform: Transform::from_translation(Vec3::new(5.0, 0.0, 5.0) + Vec3::Y * 3.15),
-                material,
-                mesh: cube,
+                emissive: color,
                 ..default()
-            })
-            .insert(Collider::cuboid(0.05, 0.05, 0.05))
-            .insert(Restitution {
-                coefficient: 1.0,
-                ..default()
-            })
-            .insert(RigidBody::Dynamic)
-            .with_children(|commands| {
-                commands.spawn_bundle(PointLightBundle {
-                    point_light: PointLight {
-                        intensity: 10.0,
-                        radius: 0.05,
-                        range: 1.0,
-                        color,
+            };
+            let material = materials.add(material);
+
+            commands
+                .spawn_bundle(PbrBundle {
+                    transform: Transform::from_translation(
+                        Vec3::new(5.0, 0.0, 5.0) + Vec3::Y * 3.15,
+                    ),
+                    material,
+                    mesh: cube,
+                    ..default()
+                })
+                .insert(Collider::cuboid(0.05, 0.05, 0.05))
+                .insert(Restitution {
+                    coefficient: 1.0,
+                    ..default()
+                })
+                .insert(RigidBody::Dynamic)
+                .with_children(|commands| {
+                    commands.spawn_bundle(PointLightBundle {
+                        point_light: PointLight {
+                            intensity: 10.0,
+                            radius: 0.05,
+                            range: 1.0,
+                            color,
+                            ..default()
+                        },
                         ..default()
-                    },
+                    });
+                });
+        }
+    }
+}
+
+fn material_properties_ui_system(
+    mut global_state: ResMut<GlobalState>,
+    mut egui_context: ResMut<EguiContext>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    egui::Window::new("material").show(egui_context.ctx_mut(), |ui| {
+        if let Some(material) = materials.get_mut(&global_state.tile_material) {
+            let response = ui.add(egui::Slider::new(&mut material.metallic, 0.0..=1.0));
+            response.on_hover_text("metallic");
+
+            let response = ui.add(egui::Slider::new(
+                &mut material.perceptual_roughness,
+                0.0..=1.0,
+            ));
+            response.on_hover_text("roughness");
+
+            // let color: egui::Color32 = material.base_color.into();
+            // ui.add(egui::color_picker::color_picker_color32(ui, srgba, alpha))
+        }
+    });
+}
+
+#[derive(Component, Default, Clone)]
+struct FadeOut {
+    until_start: f32,
+    left: f32,
+    start: f32,
+    start_color: Color,
+}
+
+impl FadeOut {
+    pub fn new(until_start: f32, fade_time: f32) -> Self {
+        FadeOut {
+            until_start,
+            left: fade_time,
+            start: fade_time,
+            ..default()
+        }
+    }
+}
+
+#[allow(clippy::collapsible_else_if)]
+fn fade_out_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<
+        (
+            Entity,
+            &mut FadeOut,
+            &mut Transform,
+            &Handle<StandardMaterial>,
+        ),
+        Without<PointLight>,
+    >,
+    mut query2: Query<(Entity, &mut FadeOut, &mut PointLight)>,
+
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    for (entity, mut fade_out, mut transform, material) in query.iter_mut() {
+        if fade_out.until_start > 0.0 {
+            fade_out.until_start -= time.delta_seconds();
+        } else {
+            if fade_out.left <= 0.0 {
+                commands.entity(entity).despawn_recursive();
+            } else {
+                let v = fade_out.left / fade_out.start;
+                fade_out.left -= time.delta_seconds();
+
+                transform.scale = Vec3::splat(v);
+                // if let Some(material) = materials.get_mut(material) {
+                //     material.emissive = fade_out.start_color * v;
+                // }
+            }
+        }
+    }
+    for (entity, mut fade_out, mut point_light) in query2.iter_mut() {
+        if fade_out.until_start > 0.0 {
+            fade_out.until_start -= time.delta_seconds();
+        } else {
+            if fade_out.left <= 0.0 {
+                commands.entity(entity).despawn_recursive();
+            } else {
+                let v = fade_out.left / fade_out.start;
+                fade_out.left -= time.delta_seconds();
+
+                point_light.color = fade_out.start_color * v;
+            }
+        }
+    }
+}
+
+fn spawn_exploding_cube(
+    commands: &mut Commands,
+    pos: Vec3,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) {
+    let cube = meshes.add(shape::Cube { size: 0.03 }.into());
+    let mut rng = rand::thread_rng();
+    info!("pos: {:?}", pos);
+    for z in 0..3 {
+        for y in 0..3 {
+            for x in 0..3 {
+                let cube_size = 0.03;
+                let x = x as f32 * cube_size;
+                let y = y as f32 * cube_size;
+                let z = z as f32 * cube_size;
+                let color = *game2::colors.choose(&mut rng).unwrap();
+                let material = materials.add(StandardMaterial {
+                    base_color: Color::BLACK,
+                    emissive: color,
                     ..default()
                 });
-            });
+
+                let velocity = Vec3::new(
+                    rng.gen_range(-1.0..1.0),
+                    rng.gen_range(2.0..3.0),
+                    rng.gen_range(-1.0..1.0),
+                );
+
+                let fade_out = FadeOut {
+                    until_start: 1.0,
+                    left: 1.0,
+                    start: 1.0,
+                    start_color: color,
+                };
+
+                commands
+                    .spawn_bundle(PbrBundle {
+                        transform: Transform::from_translation(
+                            pos + Vec3::new(x, y, z) + Vec3::Y * 0.1,
+                        ),
+                        material,
+                        mesh: cube.clone(),
+                        ..default()
+                    })
+                    .insert(Collider::cuboid(
+                        cube_size / 2.0,
+                        cube_size / 2.0,
+                        cube_size / 2.0,
+                    ))
+                    .insert(Restitution {
+                        coefficient: 1.0,
+                        ..default()
+                    })
+                    .insert(RigidBody::Dynamic)
+                    .insert(Velocity::linear(velocity))
+                    .insert(fade_out.clone())
+                    .with_children(|commands| {
+                        commands
+                            .spawn_bundle(PointLightBundle {
+                                point_light: PointLight {
+                                    intensity: 10.0,
+                                    radius: cube_size / 2.0,
+                                    range: 1.0,
+                                    color,
+                                    ..default()
+                                },
+                                ..default()
+                            })
+                            .insert(fade_out);
+                    });
+            }
+        }
     }
 }

@@ -1,4 +1,7 @@
-use bevy::{prelude::Vec2, reflect::Reflect};
+use bevy::{
+    prelude::{Component, Vec2},
+    reflect::Reflect,
+};
 use num_traits::Num;
 
 // pub mod editor;
@@ -7,7 +10,7 @@ use num_traits::Num;
 // pub mod wavefunction;
 
 // mostly based on https://www.redblobgames.com/grids/hexagons/
-#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Reflect)]
+#[derive(Default, Debug, Clone, Copy, Hash, PartialEq, Eq, Reflect, Component)]
 pub struct Cube {
     pub x: i32,
     pub y: i32,

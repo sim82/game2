@@ -1,7 +1,10 @@
 use game2::{hex::Cube, shape::HexPlane, AttachCollider};
 
 use bevy::{
-    diagnostic::DiagnosticsPlugin,
+    diagnostic::{
+        DiagnosticsPlugin, EntityCountDiagnosticsPlugin, FrameTimeDiagnosticsPlugin,
+        LogDiagnosticsPlugin,
+    },
     input::system::exit_on_esc_system,
     math::{Vec2Swizzles, Vec3Swizzles},
     prelude::*,
@@ -9,6 +12,7 @@ use bevy::{
         camera::{Camera3d, CameraPlugin},
         texture::TranscodeFormat,
     },
+    transform::components,
     utils::{HashMap, HashSet},
 };
 use bevy_egui::{egui, EguiContext, EguiPlugin};
@@ -30,13 +34,14 @@ fn main() {
     //
     app.add_plugins(DefaultPlugins)
         .add_plugin(DiagnosticsPlugin)
+        .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(EguiPlugin)
         .add_system(exit_on_esc_system);
 
     app.add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugin(RapierDebugRenderPlugin::default())
-        // .add_plugin(InspectableRapierPlugin)
-        ;
+        .add_plugin(FrameTimeDiagnosticsPlugin)
+        .add_plugin(EntityCountDiagnosticsPlugin)
+        .add_plugin(RapierDebugRenderPlugin::default());
 
     app.add_plugin(game2::AutoColliderPlugin);
 
@@ -56,6 +61,9 @@ fn main() {
     app.add_system(material_properties_ui_system)
         .init_resource::<GlobalState>();
 
+    app.add_system(spawn_player_system)
+        .add_system(player_explosion_system);
+
     #[cfg(feature = "inspector")]
     {
         app.add_plugin(bevy_inspector_egui::WorldInspectorPlugin::new());
@@ -68,9 +76,8 @@ fn picking_events_system(
     mut commands: Commands,
     mut events: EventReader<PickingEvent>,
     rotating: Query<Entity, With<DoRotate>>,
-    tile_pos_query: Query<&Transform>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    tile_pos_query: Query<(&Transform, &Cube), Without<Player>>,
+    player_query: Query<(Entity, &Cube), With<Player>>,
 ) {
     for event in events.iter() {
         match event {
@@ -85,13 +92,16 @@ fn picking_events_system(
             PickingEvent::Clicked(e) => {
                 if !rotating.contains(*e) {
                     // commands.entity(*e).insert(DoRotate::default());
-                    if let Ok(Transform { translation, .. }) = tile_pos_query.get(*e) {
-                        spawn_exploding_cube(
-                            &mut commands,
-                            *translation,
-                            &mut meshes,
-                            &mut materials,
-                        );
+                    if let Ok((Transform { translation, .. }, cube)) = tile_pos_query.get(*e) {
+                        for (player_entity, player_cube) in player_query.iter() {
+                            if player_cube == cube {
+                                // commands.entity(player_entity).despawn_recursive();
+                                commands
+                                    .entity(player_entity)
+                                    .insert(PlayerExplosion { time_left: 1.0 });
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -102,6 +112,7 @@ fn picking_events_system(
 #[derive(Default)]
 struct GlobalState {
     tile_material: Handle<StandardMaterial>,
+    player_mesh: Option<Handle<Mesh>>,
 }
 
 fn setup(
@@ -146,8 +157,9 @@ fn setup(
 
     let material = materials.add(material);
     global_state.tile_material = material.clone();
-    for y in 0..11 {
-        for x in 0..11 {
+    let field_size = 11;
+    for y in 0..field_size {
+        for x in 0..field_size {
             let cube = Cube::from_odd_r(Vec2::new(x as f32, y as f32));
             let pos = cube.to_odd_r_screen().extend(0.0).xzy();
             // info!("pos: {:?}", pos);
@@ -169,12 +181,21 @@ fn setup(
             })
             .insert_bundle(PickableBundle::default())
             .insert(AttachCollider)
-            .insert(RigidBody::KinematicPositionBased);
+            .insert(RigidBody::KinematicPositionBased)
+            .insert(cube)
+            .insert(Name::new(format!("tile.{}.{}", x, y)));
 
             if x == 5 && y == 5 {
                 ec.insert(DoRotate::default());
             }
 
+            if (x % 2 + y) % 2 == 0 {
+                commands
+                    .spawn()
+                    .insert(cube)
+                    .insert(Player {})
+                    .insert(Name::new(format!("player.{}.{}", x, y)));
+            }
             // if x == 5 && y == 5 {
             //     commands.spawn_bundle(PointLightBundle {
             //         transform: Transform::from_translation(pos + Vec3::new(0.0, 0.1, 0.0)),
@@ -411,6 +432,7 @@ fn spawn_exploding_cube(
                 let color = *game2::colors.choose(&mut rng).unwrap();
                 let material = materials.add(StandardMaterial {
                     base_color: Color::BLACK,
+                    reflectance: 0.0,
                     emissive: color,
                     ..default()
                 });
@@ -465,6 +487,90 @@ fn spawn_exploding_cube(
                             .insert(fade_out);
                     });
             }
+        }
+    }
+}
+
+#[derive(Component)]
+struct Player {}
+fn spawn_player_system(
+    mut commands: Commands,
+    mut global_state: ResMut<GlobalState>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    query: Query<(Entity, &Cube), Added<Player>>,
+) {
+    for (entity, cube) in query.iter() {
+        let v = cube.to_odd_r_screen().extend(0.0).xzy();
+
+        let mesh = global_state
+            .player_mesh
+            .get_or_insert_with(|| meshes.add(shape::Cube { size: 0.1 }.into()))
+            .clone();
+
+        let material = materials.add(StandardMaterial {
+            reflectance: 0.0,
+            emissive: Color::GREEN,
+            ..default()
+        });
+
+        commands
+            .entity(entity)
+            .insert_bundle(PbrBundle {
+                mesh,
+                material,
+                transform: Transform::from_translation(v + Vec3::Y * 0.2),
+                ..default()
+            })
+            .insert(RigidBody::Dynamic)
+            .insert(Collider::cuboid(0.05, 0.05, 0.05))
+            .with_children(|commands| {
+                commands.spawn_bundle(PointLightBundle {
+                    point_light: PointLight {
+                        color: Color::GREEN,
+                        radius: 0.1,
+                        range: 1.0,
+                        intensity: 20.0,
+                        ..default()
+                    },
+                    ..default()
+                });
+            });
+        // if global_state.player_mesh.id == 0 {}
+    }
+}
+
+#[derive(Component)]
+#[component(storage = "SparseSet")]
+struct PlayerExplosion {
+    time_left: f32,
+}
+
+fn player_explosion_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Transform, &mut PlayerExplosion)>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    let mut rng = rand::thread_rng();
+    for (entity, mut transform, mut explosion) in query.iter_mut() {
+        explosion.time_left -= time.delta_seconds();
+
+        if explosion.time_left <= 0.0 {
+            commands.entity(entity).despawn_recursive();
+            spawn_exploding_cube(
+                &mut commands,
+                transform.translation,
+                &mut meshes,
+                &mut materials,
+            );
+        } else {
+            let v = (1.0 - explosion.time_left).clamp(0.0, 1.0) * 0.3;
+            // let distr = rand::distributions::Bernoulli::new(1.0).unwrap();
+            // transform.scale = Vec3::splat(1.0 + rng.gen_range(-v..v));
+            transform.scale += Vec3::splat(rng.gen_range(-v..v));
+            transform.scale = transform.scale.clamp(Vec3::splat(0.2), Vec3::splat(1.4));
         }
     }
 }

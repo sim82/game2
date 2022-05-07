@@ -2,7 +2,6 @@ use game2::{
     auto_collider::AttachCollider,
     fx::{DoRotate, PlayerExplosion},
     hex::Cube,
-    shape::HexPlane,
 };
 
 use bevy::{
@@ -11,20 +10,12 @@ use bevy::{
         LogDiagnosticsPlugin,
     },
     input::system::exit_on_esc_system,
-    math::{Vec2Swizzles, Vec3Swizzles},
-    pbr::{ClusterConfig, ClusterZConfig},
+    math::Vec3Swizzles,
     prelude::*,
-    render::{
-        camera::{Camera3d, CameraPlugin},
-        texture::TranscodeFormat,
-    },
-    transform::components,
-    utils::{HashMap, HashSet},
     window::PresentMode,
 };
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 use bevy_mod_picking::{
-    DebugCursorPickingPlugin, DebugEventsPickingPlugin, DefaultPickingPlugins, HoverEvent,
     InteractablePickingPlugin, PickableBundle, PickingCameraBundle, PickingEvent, PickingPlugin,
 };
 use bevy_rapier3d::prelude::*;
@@ -89,7 +80,7 @@ fn picking_events_system(
     for event in events.iter() {
         match event {
             PickingEvent::Selection(e) => info!("A selection event happened: {:?}", e),
-            PickingEvent::Hover(e) => {
+            PickingEvent::Hover(_e) => {
                 // if let HoverEvent::JustEntered(e) = e {
                 //     if !rotating.contains(*e) {
                 //         commands.entity(*e).insert(DoRotate::default());
@@ -99,7 +90,7 @@ fn picking_events_system(
             PickingEvent::Clicked(e) => {
                 if !rotating.contains(*e) {
                     // commands.entity(*e).insert(DoRotate::default());
-                    if let Ok((Transform { translation, .. }, cube)) = tile_pos_query.get(*e) {
+                    if let Ok((Transform { translation: _, .. }, cube)) = tile_pos_query.get(*e) {
                         for (player_entity, player_cube) in player_query.iter() {
                             if player_cube == cube {
                                 // commands.entity(player_entity).despawn_recursive();
@@ -148,13 +139,13 @@ fn setup(
     // let hex_collider = Collider::bevy_mesh_convex_decomposition(mesh)
     // const SQRT_3_2: f32 = f32::sqrt(3.0);
 
-    const SQRT_3_2: f32 = 0.866_025_4;
+    // const SQRT_3_2: f32 = 0.866_025_4;
 
-    let cube_mesh = meshes.add(shape::Cube { size: 0.1 }.into());
+    let _cube_mesh = meshes.add(shape::Cube { size: 0.1 }.into());
     let mesh = asset_server.load("hextile2_bevel.gltf#Mesh0/Primitive0");
     // mesh.
 
-    let mesh_inst = meshes.get(mesh.clone());
+    let _mesh_inst = meshes.get(mesh.clone());
     // info!("mesh: {:?}", mesh_inst);
     let mut rng = rand::thread_rng();
 
@@ -170,7 +161,7 @@ fn setup(
             let cube = Cube::from_odd_r(Vec2::new(x as f32, y as f32));
             let pos = cube.to_odd_r_screen().extend(0.0).xzy();
             // info!("pos: {:?}", pos);
-            let color = if x == 0 {
+            let _color = if x == 0 {
                 Color::RED
             } else if y == 0 {
                 Color::GREEN
@@ -226,21 +217,21 @@ fn setup(
 
 fn cube_spawn_system(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut _meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut cube_handle: Local<Option<Handle<Mesh>>>,
+    mut _cube_handle: Local<Option<Handle<Mesh>>>,
     despawn_query: Query<(Entity, &Transform, &Handle<StandardMaterial>), With<Collider>>,
 ) {
-    let mut num_colliders = 0;
+    // let mut num_colliders = 0;
     for (entity, Transform { translation, .. }, material) in despawn_query.iter() {
         if translation.y < -10.0 {
             materials.remove(material);
             commands.entity(entity).despawn_recursive();
         } else {
-            num_colliders += 1;
+            // num_colliders += 1;
         }
     }
-
+    /*
     if false {
         if num_colliders < 200 {
             let cube = if let Some(cube) = cube_handle.as_ref() {
@@ -290,10 +281,11 @@ fn cube_spawn_system(
                 });
         }
     }
+    */
 }
 
 fn material_properties_ui_system(
-    mut global_state: ResMut<GlobalState>,
+    global_state: Res<GlobalState>,
     mut egui_context: ResMut<EguiContext>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

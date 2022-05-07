@@ -72,10 +72,9 @@ pub fn fade_out_system(
         Without<PointLight>,
     >,
     mut query2: Query<(Entity, &mut FadeOut, &mut PointLight)>,
-
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut _materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (entity, mut fade_out, mut transform, material) in query.iter_mut() {
+    for (entity, mut fade_out, mut transform, _material) in query.iter_mut() {
         if fade_out.until_start > 0.0 {
             fade_out.until_start -= time.delta_seconds();
         } else {

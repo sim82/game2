@@ -1,9 +1,4 @@
-use bevy::{
-    prelude::*,
-    utils::{HashMap, HashSet},
-};
-use bevy_rapier3d::prelude::{Collider, RigidBody};
-use multimap::MultiMap;
+use bevy::prelude::*;
 
 pub mod auto_collider;
 pub mod fx;
@@ -86,7 +81,7 @@ pub mod shape {
     }
 }
 
-pub const colorsx: [Color; 18] = [
+pub const COLORSX: [Color; 18] = [
     Color::PINK,
     Color::CRIMSON,
     Color::AQUAMARINE,

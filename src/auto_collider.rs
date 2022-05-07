@@ -12,6 +12,7 @@ pub struct MeshColliderGenerator {
 #[component(storage = "SparseSet")]
 pub struct AttachCollider;
 
+#[allow(clippy::type_complexity)]
 pub fn attach_collider_system(
     mut commands: Commands,
     mut state: ResMut<MeshColliderGenerator>,

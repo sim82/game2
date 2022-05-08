@@ -11,7 +11,7 @@ use bevy_egui::{
     EguiContext,
 };
 
-use crate::property::{PropertyName, PropertyRegistry, PropertyUpdateEvent, PropertyValue};
+use crate::property::{PropertyRegistry, PropertyUpdateEvent, PropertyValue};
 
 fn mag_to_str(mag: i32) -> &'static str {
     match mag {
@@ -101,7 +101,7 @@ pub fn hud_egui_system(
     mut egui_context: ResMut<EguiContext>,
     property_registry: Res<PropertyRegistry>,
     mut property_update_events: EventWriter<PropertyUpdateEvent>,
-    property_query: Query<(&PropertyValue, &PropertyName)>,
+    property_query: Query<(&PropertyValue, &Name)>,
     diagnostics: Res<Diagnostics>,
     // render_status: Res<RenderStatus>,
     hud_elements_query: Query<(Entity, &HudOrder, &HudElement)>,
@@ -173,9 +173,9 @@ pub fn hud_egui_system(
                         Ok((property_value, property_name)) => {
                             match property_value {
                                 PropertyValue::Bool(v) => {
-                                    if ui.button(format!("{}:{:?}", property_name.0, v)).clicked() {
+                                    if ui.button(format!("{}:{:?}", property_name, v)).clicked() {
                                         property_update_events.send(PropertyUpdateEvent::new(
-                                            property_name.0.clone(),
+                                            property_name.to_string(),
                                             PropertyValue::Bool(!v),
                                         ));
                                     }
@@ -189,7 +189,7 @@ pub fn hud_egui_system(
                                         {
                                             commands.entity(entity).remove::<StringEdit>();
                                             property_update_events.send(PropertyUpdateEvent::new(
-                                                property_name.0.clone(),
+                                                property_name.to_string(),
                                                 PropertyValue::String(
                                                     string_edit.current_string.clone(),
                                                 ),
@@ -197,7 +197,7 @@ pub fn hud_egui_system(
                                         }
                                     }
                                     _ => {
-                                        if ui.button(&property_name.0).clicked() {
+                                        if ui.button(property_name.as_str()).clicked() {
                                             commands.entity(entity).insert(StringEdit {
                                                 current_string: s.to_string(),
                                             });
@@ -208,7 +208,7 @@ pub fn hud_egui_system(
                                     let mut color = [color.x, color.y, color.z];
                                     if ui.color_edit_button_rgb(&mut color).changed() {
                                         property_update_events.send(PropertyUpdateEvent::new(
-                                            property_name.0.clone(),
+                                            property_name.to_string(),
                                             PropertyValue::Color(color.into()),
                                         ));
                                     }
@@ -250,6 +250,7 @@ pub fn hud_egui_system(
 
     egui::Window::new("plots").show(egui_context.ctx_mut(), |ui| {
         egui::plot::Plot::new("diag")
+            .legend(egui::plot::Legend::default())
             .view_aspect(2.0)
             .show(ui, |plot_ui| {
                 for points in plot_lines {

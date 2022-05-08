@@ -2,6 +2,7 @@ use game2::{
     auto_collider::AttachCollider,
     fx::{DoRotate, PlayerExplosion},
     hex::HexCube,
+    property::PropertyValue,
 };
 
 use bevy::{
@@ -127,6 +128,11 @@ fn setup(
     let camera_look = Vec3::new(2.0, -1.0, 2.0);
     // let camera_pos = Vec3::new(-20.0, 2.0, -20.0);
     // let camera_look = Vec3::new(2.0, -1.0, 2.0);
+
+    commands
+        .spawn()
+        .insert(Name::new("blub"))
+        .insert(PropertyValue::String("x".into()));
 
     commands
         .spawn_bundle(PerspectiveCameraBundle {

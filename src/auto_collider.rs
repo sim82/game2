@@ -44,7 +44,10 @@ pub fn attach_collider_system(
                 };
 
                 for entity in v.iter() {
-                    commands.entity(*entity).insert(collider.clone());
+                    commands
+                        .entity(*entity)
+                        .insert(collider.clone())
+                        .remove::<AttachCollider>();
                 }
             }
         }

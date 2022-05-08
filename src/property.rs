@@ -65,7 +65,7 @@ fn create_pending(mut commands: Commands, mut property_registry: ResMut<Property
     if !pending_create.is_empty() {
         // std::mem::take is necessary so we have exclusive mut access inside the loop (pending_create is always completely consumed)
         for pending in std::mem::take(pending_create).drain() {
-            println!("spawn pending property entity: {}", pending);
+            info!("spawn pending property entity: {}", pending);
             property_registry.name_cache.insert(pending.clone(), None); // placeholder, will be filled by detect_change system
             commands
                 .spawn()
@@ -81,14 +81,14 @@ fn detect_change(
     mut query_access: Query<(Entity, &PropertyName, &mut PropertyAccess), Changed<PropertyName>>,
 ) {
     for (ent, name, value) in query_changed.iter() {
-        println!("new: {:?} {:?} {:?}", ent, name, value);
+        info!("new: {:?} {:?} {:?}", ent, name, value);
         property_registry
             .name_cache
             .insert(name.0.clone(), Some(ent));
     }
 
     for (ent, name, mut access) in query_access.iter_mut() {
-        println!("new access. initial propagate: {:?} {:?}", ent, name);
+        info!("new access. initial propagate: {:?} {:?}", ent, name);
         let value = query
             .get(
                 property_registry
@@ -108,18 +108,18 @@ fn update_event_listener(
 ) {
     let mut updates = HashMap::new();
     for event in events.iter() {
-        println!("update: {:?}", event);
+        info!("update: {:?}", event);
         updates.insert(&event.name, &event.value);
     }
     for (ent, name, mut value) in query.iter_mut() {
         if let Some(new_value) = updates.get(&name.0) {
-            println!("propagate update to prop {:?}", ent);
+            info!("propagate update to prop {:?}", ent);
             *value = (**new_value).clone();
         }
     }
     for (ent, name, mut access) in query2.iter_mut() {
         if let Some(new_value) = updates.get(&name.0) {
-            println!("propagate update to access {:?}", ent);
+            info!("propagate update to access {:?}", ent);
             access.cache = (**new_value).clone();
         }
     }
@@ -130,11 +130,11 @@ pub struct PropertyPlugin;
 
 impl Plugin for PropertyPlugin {
     fn build(&self, app: &mut App) {
-        println!("property entity plugin");
+        info!("property entity plugin");
         app.init_resource::<PropertyRegistry>()
-            .add_system(create_pending.system())
-            .add_system(detect_change.system())
-            .add_system(update_event_listener.system())
+            .add_system(create_pending)
+            .add_system(detect_change)
+            .add_system(update_event_listener)
             .add_event::<PropertyUpdateEvent>();
     }
 }

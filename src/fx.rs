@@ -176,7 +176,7 @@ pub fn spawn_exploding_cube(
                                 point_light: PointLight {
                                     intensity: 5.0,
                                     radius: cube_size / 2.0,
-                                    range: 0.7,
+                                    range: 0.3,
                                     color,
                                     ..default()
                                 },
@@ -187,6 +187,24 @@ pub fn spawn_exploding_cube(
             }
         }
     }
+    commands
+        .spawn_bundle(PointLightBundle {
+            point_light: PointLight {
+                intensity: 40.0,
+                radius: 0.0,
+                range: 3.0,
+                color: Color::ORANGE,
+                ..default()
+            },
+            ..default()
+        })
+        .insert(Transform::from_translation(pos + Vec3::Y * 0.3))
+        .insert(FadeOut {
+            until_start: 0.0,
+            start: 1.0,
+            left: 1.0,
+            start_color: Color::ORANGE,
+        });
 }
 
 #[derive(Component)]

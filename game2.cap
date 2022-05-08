@@ -9,6 +9,12 @@
                 "type": "Set",
                 "value": "/home/sim/src/game2",
                 "variable": "CARGO_MANIFEST_DIR"
+            },
+            {
+                "separator": "Platform style",
+                "type": "Set",
+                "value": "/home/sim/src/game2/target/debug/deps:/home/sim/src/game2/target/debug",
+                "variable": "LD_LIBRARY_PATH"
             }
         ],
         "executable": "/home/sim/src/game2/target/debug/game2",

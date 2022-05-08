@@ -24,7 +24,7 @@ use rand::prelude::*;
 fn main() {
     let mut app = App::new();
     app.insert_resource(WindowDescriptor {
-        present_mode: PresentMode::Immediate,
+        present_mode: PresentMode::Fifo,
         ..Default::default()
     });
     //
@@ -44,6 +44,9 @@ fn main() {
     app.add_plugin(game2::auto_collider::AutoColliderPlugin);
 
     app.add_plugin(game2::fx::FxPlugin);
+
+    app.add_plugin(game2::debug_hud::DebugHudPlugin);
+    app.add_plugin(game2::property::PropertyPlugin);
 
     // app.add_plugins(DefaultPickingPlugins) // <- Adds Picking, Interaction, and Highlighting plugins.
     //     .add_plugin(DebugCursorPickingPlugin) // <- Adds the green debug cursor.

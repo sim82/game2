@@ -1,8 +1,14 @@
+#![feature(slice_group_by)]
+
 use bevy::prelude::*;
 
 pub mod auto_collider;
+pub mod debug_hud;
 pub mod fx;
 pub mod hex;
+// pub mod hud;
+pub mod property;
+
 pub mod shape {
     use bevy::{
         prelude::*,

@@ -115,7 +115,7 @@ pub fn spawn_exploding_cube(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {
-    let cube = meshes.add(shape::Cube { size: 0.03 }.into());
+    let cube = meshes.add(shape::Cube { size: 0.025 }.into());
     let mut rng = rand::thread_rng();
     info!("exploding: spawn cubes. pos: {:?}", pos);
     let cube_size = 4;
@@ -126,7 +126,8 @@ pub fn spawn_exploding_cube(
                 let x = x as f32 * cube_size;
                 let y = y as f32 * cube_size;
                 let z = z as f32 * cube_size;
-                let color = *crate::COLORS.choose(&mut rng).unwrap();
+                // let color = *crate::COLORS.choose(&mut rng).unwrap();
+                let color = Color::ORANGE;
                 let material = materials.add(StandardMaterial {
                     base_color: Color::BLACK,
                     reflectance: 0.0,

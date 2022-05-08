@@ -1,7 +1,7 @@
 use game2::{
     auto_collider::AttachCollider,
     fx::{DoRotate, PlayerExplosion},
-    hex::Cube,
+    hex::HexCube,
 };
 
 use bevy::{
@@ -77,8 +77,8 @@ fn picking_events_system(
     mut commands: Commands,
     mut events: EventReader<PickingEvent>,
     rotating: Query<Entity, With<DoRotate>>,
-    tile_pos_query: Query<(&Transform, &Cube), Without<Player>>,
-    player_query: Query<(Entity, &Cube), With<Player>>,
+    tile_pos_query: Query<(&Transform, &HexCube), Without<Player>>,
+    player_query: Query<(Entity, &HexCube), With<Player>>,
 ) {
     for event in events.iter() {
         match event {
@@ -161,7 +161,7 @@ fn setup(
     let field_size = 11;
     for y in 0..field_size {
         for x in 0..field_size {
-            let cube = Cube::from_odd_r(Vec2::new(x as f32, y as f32));
+            let cube = HexCube::from_odd_r(Vec2::new(x as f32, y as f32));
             let pos = cube.to_odd_r_screen().extend(0.0).xzy();
             // info!("pos: {:?}", pos);
             let _color = if x == 0 {
@@ -316,7 +316,7 @@ fn spawn_player_system(
     mut global_state: ResMut<GlobalState>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<(Entity, &Cube), Added<Player>>,
+    query: Query<(Entity, &HexCube), Added<Player>>,
 ) {
     for (entity, cube) in query.iter() {
         let v = cube.to_odd_r_screen().extend(0.0).xzy();

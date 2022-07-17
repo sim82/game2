@@ -431,6 +431,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_ecs_property"
+version = "0.1.0"
+source = "git+https://github.com/sim82/bevy_crates#07cdcb214d4be3233872c8b731bb5d5be8de32a4"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_egui"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1664,6 +1672,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
+ "bevy_ecs_property",
  "bevy_egui 0.14.0",
  "bevy_mod_picking",
  "bevy_rapier3d",

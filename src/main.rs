@@ -165,6 +165,17 @@ fn setup(
     let material = materials.add(material);
     global_state.tile_material = material.clone();
     let field_size = 11;
+
+    let tiles_root = commands
+        .spawn_bundle(TransformBundle::default())
+        .insert(Name::new("tiles"))
+        .id();
+
+    let players_root = commands
+        .spawn_bundle(TransformBundle::default())
+        .insert(Name::new("players"))
+        .id();
+
     for y in 0..field_size {
         for x in 0..field_size {
             let cube = HexCube::from_odd_r(Vec2::new(x as f32, y as f32));
@@ -179,29 +190,34 @@ fn setup(
             };
 
             let mut ec = commands.spawn();
-            ec.insert_bundle(PbrBundle {
-                transform: Transform::from_translation(pos),
+            let tile = ec
+                .insert_bundle(PbrBundle {
+                    transform: Transform::from_translation(pos),
 
-                mesh: mesh.clone(),
-                material: material.clone(),
-                ..default()
-            })
-            .insert_bundle(PickableBundle::default())
-            .insert(AttachCollider)
-            .insert(RigidBody::KinematicPositionBased)
-            .insert(cube)
-            .insert(Name::new(format!("tile.{}.{}", x, y)));
+                    mesh: mesh.clone(),
+                    material: material.clone(),
+                    ..default()
+                })
+                .insert_bundle(PickableBundle::default())
+                .insert(AttachCollider)
+                .insert(RigidBody::KinematicPositionBased)
+                .insert(cube)
+                .insert(Name::new(format!("tile.{}.{}", x, y)))
+                .id();
 
             if x == 5 && y == 5 {
                 ec.insert(DoRotate::default());
             }
+            commands.entity(tiles_root).add_child(tile);
 
             if (x % 2 + y) % 2 == 0 {
-                commands
+                let player = commands
                     .spawn()
                     .insert(cube)
                     .insert(Player {})
-                    .insert(Name::new(format!("player.{}.{}", x, y)));
+                    .insert(Name::new(format!("player.{}.{}", x, y)))
+                    .id();
+                commands.entity(players_root).add_child(player);
             }
             // if x == 5 && y == 5 {
             //     commands.spawn_bundle(PointLightBundle {
